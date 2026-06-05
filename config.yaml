@@ -1,0 +1,94 @@
+# ============================================================
+#  GEE Monitor — Multi-region Configuration
+# ============================================================
+
+GEE:
+  project: null   # set in secrets.yaml
+
+# Define one or more regions. Each has its own AOI, resolution, and output dir.
+# The dashboard will show a region selector in the top bar.
+REGIONS:
+
+  - name: "sannio"
+    label_it: "Sannio / Matese"
+    label_en: "Sannio / Matese"
+    output_dir: "./data/sannio"
+    cell_size_km: 0.5
+    scale_m: 100
+    aoi:
+      type: "FeatureCollection"
+      features:
+        - type: "Feature"
+          properties: {}
+          geometry:
+            type: "Polygon"
+            coordinates:
+              - - [14.570574749419336, 41.26195271777203]
+                - [14.653976886084564, 41.26175830025261]
+                - [14.654192023424173, 41.19897107141739]
+                - [14.570456162223934, 41.1987710005958]
+                - [14.570574749419336, 41.26195271777203]
+
+  - name: "italia"
+    label_it: "Italia"
+    label_en: "Italy"
+    output_dir: "./data/italia"
+    cell_size_km: 25
+    scale_m: 25000
+    aoi:
+      type: "FeatureCollection"
+      features:
+        - type: "Feature"
+          properties: {}
+          geometry:
+            type: "Polygon"
+            coordinates:
+              - - [6.627,35.492]
+                - [18.521,35.492]
+                - [18.521,47.092]
+                - [6.627,47.092]
+                - [6.627,35.492]
+
+# Analysis time window (shared across all regions).
+TIME:
+  start: "2019-01-01"
+  end:   "2025-12-31"
+
+# Variables — shared across all regions.
+# Set enabled: false to skip globally.
+VARIABLES:
+  ndvi:               {enabled: true,  collection: "COPERNICUS/S2_SR_HARMONIZED"}
+  evi:                {enabled: true,  collection: "MODIS/061/MOD13Q1"}
+  ndwi:               {enabled: true,  collection: "COPERNICUS/S2_SR_HARMONIZED"}
+  ndbi:               {enabled: true,  collection: "COPERNICUS/S2_SR_HARMONIZED"}
+  lst:                {enabled: true,  collection: "MODIS/061/MOD11A1"}
+  precipitation:      {enabled: true,  collection: "UCSB-CHG/CHIRPS/DAILY"}
+  soil_moisture:      {enabled: true,  collection: "NASA/SMAP/SPL4SMGP/008"}
+  air_temp:           {enabled: true,  collection: "ECMWF/ERA5_LAND/HOURLY"}
+  humidity:           {enabled: true,  collection: "ECMWF/ERA5_LAND/HOURLY"}
+  wind_speed:         {enabled: true,  collection: "ECMWF/ERA5_LAND/HOURLY"}
+  no2:                {enabled: true,  collection: "COPERNICUS/S5P/NRTI/L3_NO2"}
+  co:                 {enabled: true,  collection: "COPERNICUS/S5P/NRTI/L3_CO"}
+  fires:              {enabled: true,  collection: "FIRMS"}
+  lulc:               {enabled: true,  collection: "GOOGLE/DYNAMICWORLD/V1"}
+  albedo:             {enabled: true,  collection: "MODIS/061/MCD43A3"}
+  lai:                {enabled: true,  collection: "MODIS/061/MOD15A2H"}
+  snow_cover:         {enabled: false, collection: "MODIS/061/MOD10A1"}
+  evapotranspiration: {enabled: true,  collection: "MODIS/061/MOD16A2"}
+  aerosol:            {enabled: true,  collection: "COPERNICUS/S5P/NRTI/L3_AER_AI"}
+  o3:                 {enabled: true,  collection: "COPERNICUS/S5P/NRTI/L3_O3"}
+
+# Unit conversions at export time:
+#   NO2 : mol/m2 * 1e6  -> umol/m2
+#   CO  : mol/m2 * 1000 -> mmol/m2
+#   O3  : mol/m2 * 1000 -> mmol/m2
+
+CHUNKING:
+  chunk_months: 1
+  max_retries: 3
+  retry_wait_s: 30
+  pause_between_chunks_s: 5
+
+LOGGING:
+  log_file: "./logs/gee_export.log"
+  level: "INFO"

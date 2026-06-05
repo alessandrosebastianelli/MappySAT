@@ -1,0 +1,1302 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MappySAT
+  </title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box
+    }
+
+    :root {
+      --bg: #0d0f0e;
+      --surface: #141716;
+      --surface2: #1a1d1b;
+      --surface3: #222623;
+      --border: #2a2f2b;
+      --border2: #363c37;
+      --text: #e8ede9;
+      --text2: #8fa090;
+      --text3: #556357;
+      --accent: #4ade80;
+      --accent-dim: #1a3d27;
+      --r: 8px
+    }
+
+    html,
+    body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      overflow: hidden
+    }
+
+    #app {
+      display: grid;
+      grid-template-columns: 270px 1fr;
+      grid-template-rows: 52px 1fr;
+      height: 100vh
+    }
+
+    #topbar {
+      grid-column: 1/-1;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 18px;
+      gap: 16px;
+      z-index: 200
+    }
+
+    .logo {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      color: var(--accent)
+    }
+
+    .logo span {
+      color: var(--text2);
+      font-weight: 400
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 2s infinite;
+      flex-shrink: 0
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: .4
+      }
+    }
+
+    .topbar-info {
+      font-size: 11px;
+      color: var(--text3);
+      font-family: 'IBM Plex Mono', monospace
+    }
+
+    .lang-toggle {
+      margin-left: auto;
+      display: flex;
+      gap: 2px;
+      background: var(--surface2);
+      padding: 3px;
+      border-radius: 6px
+    }
+
+    .lang-btn {
+      background: none;
+      border: none;
+      color: var(--text2);
+      font-family: 'Syne', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all .2s
+    }
+
+    .lang-btn.active {
+      background: var(--accent-dim);
+      color: var(--accent)
+    }
+
+    #sidebar {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column
+    }
+
+    .sidebar-section {
+      padding: 12px 14px 8px;
+      border-bottom: 1px solid var(--border)
+    }
+
+    .s-label-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 8px
+    }
+
+    .s-label {
+      font-size: 10px;
+      letter-spacing: .12em;
+      color: var(--text3);
+      text-transform: uppercase;
+      font-family: 'IBM Plex Mono', monospace;
+      flex: 1
+    }
+
+    .help-btn {
+      background: none;
+      border: 1px solid var(--border2);
+      color: var(--text3);
+      font-size: 10px;
+      cursor: pointer;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all .15s;
+      font-family: 'IBM Plex Mono', monospace;
+      flex-shrink: 0
+    }
+
+    .help-btn:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+      background: var(--accent-dim)
+    }
+
+    .help-tooltip {
+      position: fixed;
+      z-index: 6000;
+      background: var(--surface);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      padding: 10px 13px;
+      max-width: 230px;
+      font-size: 12px;
+      color: var(--text2);
+      line-height: 1.6;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, .5);
+      pointer-events: none;
+      display: none
+    }
+
+    .help-tooltip.visible {
+      display: block
+    }
+
+    .var-btn {
+      width: 100%;
+      background: none;
+      border: none;
+      color: var(--text2);
+      font-family: 'Syne', sans-serif;
+      font-size: 12px;
+      padding: 5px 8px;
+      border-radius: 5px;
+      cursor: pointer;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all .15s
+    }
+
+    .var-btn:hover {
+      background: var(--surface2);
+      color: var(--text)
+    }
+
+    .var-btn.active {
+      background: var(--accent-dim);
+      color: var(--accent);
+      font-weight: 600
+    }
+
+    .var-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0
+    }
+
+    .var-unit {
+      margin-left: auto;
+      font-size: 9px;
+      font-family: 'IBM Plex Mono', monospace;
+      color: var(--text3);
+      white-space: nowrap
+    }
+
+    .info-btn {
+      background: none;
+      border: none;
+      color: var(--text3);
+      font-size: 12px;
+      cursor: pointer;
+      padding: 0 0 0 3px;
+      line-height: 1;
+      transition: color .15s;
+      flex-shrink: 0
+    }
+
+    .info-btn:hover {
+      color: var(--accent)
+    }
+
+    .opacity-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px
+    }
+
+    .op-label {
+      font-size: 11px;
+      color: var(--text2);
+      font-family: 'IBM Plex Mono', monospace;
+      white-space: nowrap
+    }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      flex: 1;
+      height: 3px;
+      background: var(--border2);
+      border-radius: 3px;
+      outline: none
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      border: 2px solid var(--bg)
+    }
+
+    .op-val {
+      font-size: 11px;
+      font-family: 'IBM Plex Mono', monospace;
+      color: var(--accent);
+      min-width: 28px
+    }
+
+    .time-btns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 0 0 6px
+    }
+
+    .time-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text2);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      padding: 4px 7px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all .15s
+    }
+
+    .time-btn.active {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: var(--accent)
+    }
+
+    .legend-bar {
+      height: 9px;
+      border-radius: 3px;
+      margin: 5px 0 3px
+    }
+
+    .legend-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      font-family: 'IBM Plex Mono', monospace;
+      color: var(--text3)
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 5px;
+      padding: 0 14px 10px
+    }
+
+    .stat-card {
+      background: var(--surface2);
+      border-radius: 5px;
+      padding: 7px 9px
+    }
+
+    .stat-val {
+      font-size: 15px;
+      font-weight: 700;
+      font-family: 'IBM Plex Mono', monospace;
+      color: var(--text)
+    }
+
+    .stat-lbl {
+      font-size: 10px;
+      color: var(--text3);
+      margin-top: 1px
+    }
+
+    #main {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden
+    }
+
+    #map-container {
+      position: relative;
+      overflow: hidden;
+      flex: 1;
+      min-height: 0
+    }
+
+    #map {
+      width: 100%;
+      height: 100%
+    }
+
+    #resize-handle {
+      height: 5px;
+      background: var(--border);
+      cursor: row-resize;
+      flex-shrink: 0;
+      transition: background .15s
+    }
+
+    #resize-handle:hover,
+    #resize-handle.dragging {
+      background: var(--accent)
+    }
+
+    #chart-panel {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      height: 260px;
+      flex-shrink: 0
+    }
+
+    .chart-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px 4px;
+      flex-shrink: 0
+    }
+
+    .chart-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text)
+    }
+
+    .chart-scope {
+      font-size: 10px;
+      color: var(--text3);
+      font-family: 'IBM Plex Mono', monospace;
+      background: var(--surface2);
+      padding: 2px 7px;
+      border-radius: 3px
+    }
+
+    .chart-tabs {
+      display: flex;
+      gap: 2px;
+      background: var(--surface2);
+      padding: 2px;
+      border-radius: 5px;
+      margin-left: auto
+    }
+
+    .chart-tab {
+      background: none;
+      border: none;
+      color: var(--text2);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      padding: 3px 7px;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all .15s
+    }
+
+    .chart-tab.active {
+      background: var(--surface3);
+      color: var(--text)
+    }
+
+    /* Cloud legend */
+    .cloud-legend {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 14px 4px;
+      flex-shrink: 0;
+      font-size: 10px;
+      font-family: 'IBM Plex Mono', monospace;
+      color: var(--text3)
+    }
+
+    .cloud-legend.visible {
+      display: flex
+    }
+
+    .cloud-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0
+    }
+
+    /* Chart body — simple flex fill */
+    .chart-body {
+      flex: 1;
+      min-height: 0;
+      padding: 2px 14px 8px
+    }
+
+    .chart-body canvas {
+      width: 100% !important;
+      height: 100% !important
+    }
+
+    .map-ctrls {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 5px
+    }
+
+    .map-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text2);
+      font-size: 11px;
+      padding: 5px 9px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-family: 'IBM Plex Mono', monospace;
+      transition: all .15s;
+      white-space: nowrap
+    }
+
+    .map-btn:hover {
+      background: var(--surface2);
+      color: var(--text)
+    }
+
+    .map-btn.active {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: var(--accent)
+    }
+
+    .coord-badge {
+      position: absolute;
+      bottom: 8px;
+      left: 8px;
+      z-index: 1000;
+      background: rgba(13, 15, 14, .85);
+      border: 1px solid var(--border);
+      font-size: 10px;
+      font-family: 'IBM Plex Mono', monospace;
+      color: var(--text3);
+      padding: 3px 7px;
+      border-radius: 4px;
+      pointer-events: none
+    }
+
+    .cell-badge {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 1000;
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 6px;
+      padding: 8px 11px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      color: var(--text2);
+      pointer-events: none;
+      display: none
+    }
+
+    .cell-badge.visible {
+      display: block
+    }
+
+    .cell-badge strong {
+      color: var(--accent);
+      display: block;
+      margin-bottom: 3px;
+      font-size: 12px
+    }
+
+    .leaflet-container {
+      background: #0d1410 !important
+    }
+
+    .leaflet-control-zoom {
+      border: 1px solid var(--border) !important;
+      background: var(--surface) !important
+    }
+
+    .leaflet-control-zoom a {
+      background: var(--surface) !important;
+      color: var(--text2) !important;
+      border-bottom: 1px solid var(--border) !important
+    }
+
+    .leaflet-control-zoom a:hover {
+      background: var(--surface2) !important;
+      color: var(--text) !important
+    }
+
+    .leaflet-popup-content-wrapper {
+      background: var(--surface) !important;
+      border: 1px solid var(--border2) !important;
+      box-shadow: none !important;
+      border-radius: var(--r) !important;
+      padding: 0 !important
+    }
+
+    .leaflet-popup-content {
+      margin: 0 !important
+    }
+
+    .leaflet-popup-tip {
+      background: var(--surface) !important
+    }
+
+    ::-webkit-scrollbar {
+      height: 4px;
+      width: 4px
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border2);
+      border-radius: 2px
+    }
+
+    #info-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 5000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, .6)
+    }
+
+    #info-modal.open {
+      display: flex
+    }
+
+    .info-card {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 10px;
+      width: 360px;
+      max-width: 92vw;
+      overflow: hidden
+    }
+
+    .info-card-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid var(--border)
+    }
+
+    .info-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      flex-shrink: 0
+    }
+
+    .info-card-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      flex: 1;
+      line-height: 1.3
+    }
+
+    .info-close {
+      background: none;
+      border: none;
+      color: var(--text3);
+      font-size: 18px;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1
+    }
+
+    .info-close:hover {
+      color: var(--text)
+    }
+
+    .info-card-body {
+      padding: 14px 16px
+    }
+
+    .info-desc {
+      font-size: 13px;
+      color: var(--text2);
+      line-height: 1.65;
+      margin-bottom: 12px
+    }
+
+    .info-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 5px
+    }
+
+    .info-meta-row {
+      display: flex;
+      gap: 8px;
+      font-size: 11px
+    }
+
+    .info-meta-row .mk {
+      color: var(--text3);
+      font-family: 'IBM Plex Mono', monospace;
+      min-width: 54px;
+      flex-shrink: 0
+    }
+
+    .info-meta-row .mv {
+      color: var(--text2);
+      line-height: 1.4
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app">
+    <div id="topbar">
+      <div class="logo">Mappy<span>·SAT</span></div>
+      <div class="status-dot"></div>
+      <select id="region-select" onchange="switchRegion(this.value)"
+        style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-family:'IBM Plex Mono',monospace;font-size:11px;padding:3px 8px;border-radius:5px;cursor:pointer;outline:none">
+        <option value="sannio">Sannio / Matese</option>
+        <option value="italia">Italia</option>
+      </select>
+      <span class="topbar-info" id="area-label"></span>
+      <span class="topbar-info" id="last-update"></span>
+      <div class="lang-toggle">
+        <button class="lang-btn active" onclick="setLang('it')">IT</button>
+        <button class="lang-btn" onclick="setLang('en')">EN</button>
+      </div>
+    </div>
+    <div id="sidebar">
+      <div class="sidebar-section">
+        <div class="s-label-row"><span class="s-label" data-it="Variabili" data-en="Variables">Variabili</span><button
+            class="help-btn" onclick="showHelp(event,'vars')">?</button></div>
+        <div id="var-list"></div>
+      </div>
+      <div class="sidebar-section">
+        <div class="s-label-row"><span class="s-label" data-it="Trasparenza celle" data-en="Cell opacity">Trasparenza
+            celle</span><button class="help-btn" onclick="showHelp(event,'opacity')">?</button></div>
+        <div class="opacity-row">
+          <span class="op-label">Fill</span>
+          <input type="range" id="opacity-slider" min="0" max="100" value="40" step="1"
+            oninput="updateOpacity(this.value)">
+          <span class="op-val" id="opacity-val">40%</span>
+        </div>
+      </div>
+      <div class="sidebar-section">
+        <div class="s-label-row"><span class="s-label" data-it="Scala temporale" data-en="Time scale">Scala
+            temporale</span><button class="help-btn" onclick="showHelp(event,'time')">?</button></div>
+        <div style="padding:0 0 4px">
+          <div class="time-btns">
+            <button class="time-btn" data-agg="raw" onclick="setAgg('raw')" data-it="Tutti" data-en="All">Tutti</button>
+            <button class="time-btn active" data-agg="monthly" onclick="setAgg('monthly')" data-it="Mensile"
+              data-en="Monthly">Mensile</button>
+            <button class="time-btn" data-agg="seasonal" onclick="setAgg('seasonal')" data-it="Stagionale"
+              data-en="Seasonal">Stagionale</button>
+            <button class="time-btn" data-agg="annual" onclick="setAgg('annual')" data-it="Annuale"
+              data-en="Annual">Annuale</button>
+          </div>
+        </div>
+      </div>
+      <div class="sidebar-section">
+        <div class="s-label-row"><span class="s-label" data-it="Legenda" data-en="Legend">Legenda</span><button
+            class="help-btn" onclick="showHelp(event,'legend')">?</button></div>
+        <div style="padding:0 4px 2px">
+          <div class="legend-bar" id="legend-bar"></div>
+          <div class="legend-labels"><span id="leg-min"></span><span id="leg-mid"></span><span id="leg-max"></span>
+          </div>
+        </div>
+      </div>
+      <div class="sidebar-section">
+        <div class="s-label-row"><span class="s-label" data-it="Statistiche" data-en="Stats">Statistiche</span><button
+            class="help-btn" onclick="showHelp(event,'stats')">?</button></div>
+        <div class="stat-grid" id="stat-grid"></div>
+      </div>
+      <div style="padding:10px 14px;margin-top:auto">
+        <div style="font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace;line-height:1.7"
+          id="src-label">Fonte: Google Earth Engine<br>Script: gee_export.py</div>
+      </div>
+    </div>
+    <div id="main">
+      <div id="map-container">
+        <div id="map"></div>
+        <div class="cell-badge" id="cell-badge"><strong id="cell-badge-id"></strong><span id="cell-badge-coords"></span>
+        </div>
+        <div class="map-ctrls">
+          <button class="map-btn active" id="btn-satellite" onclick="toggleBasemap('satellite')">Satellite</button>
+          <button class="map-btn" id="btn-osm" onclick="toggleBasemap('osm')">OpenStreetMap</button>
+          <button class="map-btn" id="btn-terrain" onclick="toggleBasemap('terrain')">Terreno</button>
+          <button class="map-btn" style="margin-top:6px;opacity:.6;font-size:10px" onclick="showHelp(event,'map')"
+            data-it="? mappa" data-en="? map">? mappa</button>
+        </div>
+        <div class="coord-badge" id="coord-badge">—, —</div>
+      </div>
+      <div id="resize-handle"></div>
+      <div id="chart-panel">
+        <div class="chart-header">
+          <span class="chart-title" id="chart-title">NDVI</span>
+          <span class="chart-scope" id="chart-scope">c000</span>
+          <button class="help-btn" onclick="showHelp(event,'chart')">?</button>
+          <div class="chart-tabs" id="chart-tabs">
+            <button class="chart-tab active" data-tab="line" onclick="setChartType('line')" data-it="Linea"
+              data-en="Line">Linea</button>
+            <button class="chart-tab" data-tab="bar" onclick="setChartType('bar')" data-it="Barre"
+              data-en="Bar">Barre</button>
+            <button class="chart-tab" data-tab="anomaly" onclick="setChartType('anomaly')" data-it="Anomalia"
+              data-en="Anomaly">Anomalia</button>
+          </div>
+        </div>
+        <div id="chart-nav"
+          style="display:none;padding:2px 14px;font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace;flex-shrink:0">
+          <span id="nav-hint"></span><button onclick="mainChart&&mainChart.resetZoom()"
+            style="float:right;background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-family:'IBM Plex Mono',monospace;font-size:10px;padding:1px 7px;border-radius:3px;cursor:pointer"
+            data-it="↺ reset zoom" data-en="↺ reset zoom">↺ reset zoom</button></div>
+        <div class="cloud-legend" id="cloud-legend">
+          <span class="cloud-dot" style="background:#4ade80"></span><span data-it="nuvole <20%"
+            data-en="cloud <20%">nuvole &lt;20%</span>
+          <span class="cloud-dot" style="background:#fbbf24;margin-left:6px"></span><span data-it="20-50%"
+            data-en="20-50%">20-50%</span>
+          <span class="cloud-dot" style="background:#ef4444;margin-left:6px"></span><span data-it=">50%"
+            data-en=">50%">&gt;50%</span>
+        </div>
+        <div class="chart-body">
+          <canvas id="main-chart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="help-tooltip" id="help-tooltip"></div>
+
+  <div id="info-modal" onclick="closeInfo(event)">
+    <div class="info-card">
+      <div class="info-card-head">
+        <div class="info-dot" id="info-dot"></div>
+        <div class="info-card-title" id="info-title"></div>
+        <button class="info-close" onclick="document.getElementById('info-modal').classList.remove('open')">✕</button>
+      </div>
+      <div class="info-card-body">
+        <p class="info-desc" id="info-desc"></p>
+        <div class="info-meta">
+          <div class="info-meta-row"><span class="mk" id="lbl-range">Scala</span><span class="mv"
+              id="info-range"></span></div>
+          <div class="info-meta-row"><span class="mk" id="lbl-source">Fonte</span><span class="mv"
+              id="info-source"></span></div>
+          <div class="info-meta-row" id="info-unit-row" style="display:none"><span class="mk"
+              id="lbl-unit">Unità</span><span class="mv" id="info-unit-note"></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ── STATE ── */
+    let lang = 'it';
+    let activeRegion = 'sannio';
+    let activeVar = 'ndvi', agg = 'monthly', chartType = 'line';
+    let fillOpacity = 0.40, selectedCell = null;
+    let gridCells = [], cellLayers = {}, cellData = {}, mainChart = null;
+    // Navigation state
+    let _allLabels = [], _allData = [], _allCloud = [], _winOffset = 0;
+    const WIN = 60; // points visible at once
+
+    /* ── I18N ── */
+    function setLang(l) {
+      lang = l;
+      document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.textContent === l.toUpperCase()));
+      document.querySelectorAll('[data-it]').forEach(el => { el.textContent = el.dataset[l]; });
+      const modal = document.getElementById('info-modal');
+      if (modal.classList.contains('open')) {
+        const vid = VARS.find(v => v.color === document.getElementById('info-dot').style.background)?.id || activeVar;
+        openInfo(vid, { stopPropagation: () => { } });
+      }
+      renderVarList(); updateChartTitle(); updateChartScope(); renderChart();
+    }
+
+    /* ── HELP ── */
+    const HELP = {
+      vars: { it: `Seleziona la variabile. Clicca ⓘ per la spiegazione scientifica.`, en: `Select the variable. Click ⓘ for a scientific explanation.` },
+      opacity: { it: `Regola la trasparenza delle celle sulla mappa.`, en: `Adjust cell fill transparency on the map.` },
+      time: { it: `"Tutti" mostra ogni acquisizione. Con >60 punti appaiono i tasti ← → per navigare.`, en: `"All" shows every acquisition. With >60 points ← → buttons appear to navigate.` },
+      legend: { it: `Scala dei valori per la variabile selezionata.`, en: `Value range for the selected variable.` },
+      stats: { it: `Statistiche dalla cella selezionata (default c000), su tutte le acquisizioni nel periodo.`, en: `Statistics from the selected cell (default c000), over all acquisitions in the period.` },
+      map: { it: `Clicca una cella per vedere i dati nel grafico. Clicca di nuovo per deselezionare.`, en: `Click a cell to see its data in the chart. Click again to deselect.` },
+      chart: { it: `Serie temporale. Con molti punti usa ← → per navigare. Per NDVI/NDWI/NDBI la linea tratteggiata mostra la copertura nuvolosa.`, en: `Time series. With many points use ← → to navigate. For NDVI/NDWI/NDBI the dashed line shows cloud cover.` },
+    };
+    let _helpVisible = false;
+    function showHelp(e, id) {
+      e.stopPropagation();
+      const tip = document.getElementById('help-tooltip');
+      tip.textContent = HELP[id]?.[lang] || '';
+      const r = e.target.getBoundingClientRect();
+      tip.style.left = Math.min(r.left, window.innerWidth - 250) + 'px';
+      tip.style.top = (r.bottom + 6) + 'px';
+      tip.classList.add('visible');
+      _helpVisible = true;
+    }
+    document.addEventListener('click', () => { if (_helpVisible) { document.getElementById('help-tooltip').classList.remove('visible'); _helpVisible = false; } });
+
+    /* ── VARIABLE METADATA ── */
+    const INFO = {
+      ndvi: { it: { title: `NDVI — Indice di vegetazione`, body: `Misura la salute e la densità della vegetazione. Valori alti indicano vegetazione rigogliosa. I dati nuvolosi non vengono rimossi: cloud_pct indica la copertura nuvolosa.`, range: `−0.2 (suolo/acqua) → 0.9 (foresta densa)`, source: `Sentinel-2, ogni ~5 giorni` }, en: { title: `NDVI — Vegetation Index`, body: `Measures vegetation health and density. High values indicate lush vegetation. Cloudy data is not removed: cloud_pct shows cloud cover at acquisition time.`, range: `−0.2 (soil/water) → 0.9 (dense forest)`, source: `Sentinel-2, every ~5 days` } },
+      evi: { it: { title: `EVI — Indice di vegetazione potenziato`, body: `Simile all'NDVI ma più preciso in aree con vegetazione densa o polvere.`, range: `−0.1 → 0.7`, source: `MODIS, ogni 16 giorni` }, en: { title: `EVI — Enhanced Vegetation Index`, body: `Similar to NDVI but more accurate in areas with dense vegetation or dusty air.`, range: `−0.1 → 0.7`, source: `MODIS, every 16 days` } },
+      ndwi: { it: { title: `NDWI — Indice idrico`, body: `Evidenzia la presenza di acqua in superficie. Valori positivi indicano acqua o vegetazione molto idratata.`, range: `−0.5 (suolo secco) → 0.6 (acqua)`, source: `Sentinel-2, ogni ~5 giorni` }, en: { title: `NDWI — Water Index`, body: `Highlights surface water. Positive values indicate water or well-hydrated vegetation.`, range: `−0.5 (dry soil) → 0.6 (water)`, source: `Sentinel-2, every ~5 days` } },
+      ndbi: { it: { title: `NDBI — Indice di edificato`, body: `Identifica le aree costruite. Valori alti indicano superfici artificiali.`, range: `−0.4 (vegetazione) → 0.5 (città)`, source: `Sentinel-2, ogni ~5 giorni` }, en: { title: `NDBI — Built-up Index`, body: `Identifies built-up areas. High values indicate artificial surfaces.`, range: `−0.4 (vegetation) → 0.5 (urban)`, source: `Sentinel-2, every ~5 days` } },
+      lst: { it: { title: `LST — Temperatura superficiale`, body: `Temperatura della superficie terrestre vista dal satellite, diversa dalla temperatura dell'aria.`, range: `5°C (inverno/bosco) → 42°C (estate/asfalto)`, source: `MODIS Terra, ogni giorno` }, en: { title: `LST — Land Surface Temperature`, body: `Earth surface temperature as seen from space, different from air temperature.`, range: `5°C (winter/forest) → 42°C (summer/asphalt)`, source: `MODIS Terra, daily` } },
+      precipitation: { it: { title: `Precipitazioni`, body: `Stima la quantità di pioggia da dati satellite e stazioni meteo a terra.`, range: `0 → 280 mm/mese`, source: `CHIRPS, ogni giorno` }, en: { title: `Precipitation`, body: `Estimates rainfall from satellite data and weather stations.`, range: `0 → 280 mm/month`, source: `CHIRPS, daily` } },
+      soil_moisture: { it: { title: `Umidità del suolo`, body: `Acqua nei primi centimetri del terreno. Alto = saturo, basso = siccità.`, range: `0.05 (secco) → 0.45 m³/m³ (saturo)`, source: `NASA SMAP, ogni ~3 giorni` }, en: { title: `Soil Moisture`, body: `Water in the top soil layer. High = saturated, low = drought.`, range: `0.05 (dry) → 0.45 m³/m³ (saturated)`, source: `NASA SMAP, every ~3 days` } },
+      air_temp: { it: { title: `Temperatura dell'aria`, body: `Temperatura a 2 metri dal suolo dai modelli ERA5. Media giornaliera.`, range: `−5°C (inverno) → 38°C (estate)`, source: `ERA5-Land (ECMWF), media giornaliera` }, en: { title: `Air Temperature`, body: `Temperature at 2 metres from ERA5 climate models. Daily mean.`, range: `−5°C (winter) → 38°C (summer)`, source: `ERA5-Land (ECMWF), daily mean` } },
+      humidity: { it: { title: `Umidità relativa`, body: `Percentuale di vapore acqueo nell'aria. Alta umidità favorisce nebbia; bassa aumenta il rischio incendi.`, range: `30% (aria secca) → 95% (quasi saturo)`, source: `ERA5-Land (ECMWF), media giornaliera` }, en: { title: `Relative Humidity`, body: `Water vapour percentage in air. High promotes fog; low increases fire risk.`, range: `30% (dry) → 95% (near saturation)`, source: `ERA5-Land (ECMWF), daily mean` } },
+      wind_speed: { it: { title: `Velocità del vento`, body: `Intensità del vento a 10 metri. Importante per dispersione inquinanti e rischio incendi.`, range: `0 → 20+ m/s`, source: `ERA5-Land (ECMWF), media giornaliera` }, en: { title: `Wind Speed`, body: `Wind at 10 metres. Important for pollutant dispersion and fire risk.`, range: `0 → 20+ m/s`, source: `ERA5-Land (ECMWF), daily mean` } },
+      no2: { it: { title: `NO₂ — Biossido di azoto`, body: `Gas inquinante da traffico e industria. Misurato nella colonna troposferica.`, range: `0 → ~15 µmol/m²`, source: `Sentinel-5P TROPOMI, ogni giorno`, unit: `mol/m² × 1.000.000 = µmol/m²` }, en: { title: `NO₂ — Nitrogen Dioxide`, body: `Pollutant from traffic and industry, measured in the tropospheric column.`, range: `0 → ~15 µmol/m²`, source: `Sentinel-5P TROPOMI, daily`, unit: `mol/m² × 1,000,000 = µmol/m²` } },
+      co: { it: { title: `CO — Monossido di carbonio`, body: `Gas da combustione incompleta. Picchi coincidono con incendi o smog.`, range: `20 → 120 mmol/m²`, source: `Sentinel-5P TROPOMI, ogni giorno`, unit: `mol/m² × 1.000 = mmol/m²` }, en: { title: `CO — Carbon Monoxide`, body: `Gas from incomplete combustion. Peaks coincide with wildfires or smog.`, range: `20 → 120 mmol/m²`, source: `Sentinel-5P TROPOMI, daily`, unit: `mol/m² × 1,000 = mmol/m²` } },
+      fires: { it: { title: `Fuochi attivi (FIRMS)`, body: `Pixel con temperatura anomalamente alta — indice di incendio attivo.`, range: `0 → 15+ rilevamenti per cella`, source: `MODIS FIRMS (NASA), ogni giorno` }, en: { title: `Active Fires (FIRMS)`, body: `Pixels with abnormally high temperature — indicator of active fire.`, range: `0 → 15+ detections per cell`, source: `MODIS FIRMS (NASA), daily` } },
+      lulc: { it: { title: `Uso del suolo — Dynamic World`, body: `9 classi quasi in tempo reale da Sentinel-2. Cattura variazioni stagionali. Valore = classe modale nel periodo.`, range: `9 classi: acqua, alberi, prato, veg. allagata, seminativo, arbusti, edificato, suolo nudo, neve`, source: `Google Dynamic World V1, quasi in tempo reale` }, en: { title: `Land Use — Dynamic World`, body: `9 near-real-time classes from Sentinel-2. Captures seasonal changes. Value = modal class over the period.`, range: `9 classes: water, trees, grass, flooded veg., crops, shrub, built-up, bare, snow`, source: `Google Dynamic World V1, near-real-time` } },
+      albedo: { it: { title: `Albedo — Riflettività`, body: `Frazione di luce solare riflessa. Neve/deserto alta; foreste/oceani bassa.`, range: `0.0 → 0.9`, source: `MODIS MCD43A3, ogni giorno` }, en: { title: `Albedo — Reflectivity`, body: `Fraction of sunlight reflected. Snow/desert high; forests/oceans low.`, range: `0.0 → 0.9`, source: `MODIS MCD43A3, daily` } },
+      lai: { it: { title: `LAI — Indice area fogliare`, body: `Superficie fogliare per unità di suolo. Valori alti = vegetazione densa e produttiva.`, range: `0 → 8+ m²/m²`, source: `MODIS MOD15A2H, ogni 8 giorni` }, en: { title: `LAI — Leaf Area Index`, body: `Leaf surface per unit ground area. High values = dense productive vegetation.`, range: `0 → 8+ m²/m²`, source: `MODIS MOD15A2H, every 8 days` } },
+      evapotranspiration: { it: { title: `Evapotraspirazione`, body: `Acqua trasferita dal suolo all'atmosfera. Indicatore chiave dello stress idrico.`, range: `0 → 10+ mm/8 giorni`, source: `MODIS MOD16A2, ogni 8 giorni` }, en: { title: `Evapotranspiration`, body: `Water transferred from soil to atmosphere. Key indicator of water stress.`, range: `0 → 10+ mm/8 days`, source: `MODIS MOD16A2, every 8 days` } },
+      aerosol: { it: { title: `Aerosol assorbente`, body: `Particelle nell'aria che assorbono luce (polvere, fumo, ceneri). Valori alti = aria inquinata.`, range: `−1 (pulita) → 3+ (inquinata)`, source: `Sentinel-5P TROPOMI, ogni giorno` }, en: { title: `Absorbing Aerosol Index`, body: `Particles absorbing sunlight (dust, smoke, ash). High = heavily polluted air.`, range: `−1 (clean) → 3+ (heavy pollution)`, source: `Sentinel-5P TROPOMI, daily` } },
+      o3: { it: { title: `O₃ — Ozono`, body: `Concentrazione di ozono nella colonna atmosferica. Protegge dai raggi UV.`, range: `80 → 160 mmol/m²`, source: `Sentinel-5P TROPOMI, ogni giorno`, unit: `mol/m² × 1.000 = mmol/m²` }, en: { title: `O₃ — Ozone`, body: `Ozone concentration in the atmospheric column. Protects from UV rays.`, range: `80 → 160 mmol/m²`, source: `Sentinel-5P TROPOMI, daily`, unit: `mol/m² × 1,000 = mmol/m²` } },
+    };
+
+    const VARS = [
+      { id: 'ndvi', it: 'NDVI (Vegetazione)', en: 'NDVI (Vegetation)', unit: '[−1,1]', color: '#4ade80', grad: ['#7f1d1d', '#fef08a', '#14532d'], min: -0.2, max: 0.9, dec: 3 },
+      { id: 'evi', it: 'EVI (Vegetazione+)', en: 'EVI (Enhanced Veg.)', unit: '[−1,1]', color: '#86efac', grad: ['#78350f', '#fef9c3', '#064e3b'], min: -0.1, max: 0.7, dec: 3 },
+      { id: 'ndwi', it: 'NDWI (Acqua)', en: 'NDWI (Water)', unit: '[−1,1]', color: '#60a5fa', grad: ['#7c3aed', '#e0f2fe', '#1e3a5f'], min: -0.5, max: 0.6, dec: 3 },
+      { id: 'ndbi', it: 'NDBI (Edificato)', en: 'NDBI (Built-up)', unit: '[−1,1]', color: '#f97316', grad: ['#1c1917', '#d1d5db', '#b45309'], min: -0.4, max: 0.5, dec: 3 },
+      { id: 'lst', it: 'LST (Temp. Superficie)', en: 'LST (Surface Temp.)', unit: '°C', color: '#fb7185', grad: ['#1e3a5f', '#fef08a', '#7f1d1d'], min: 5, max: 42, dec: 1 },
+      { id: 'precipitation', it: 'Precipitazioni', en: 'Precipitation', unit: 'mm', color: '#38bdf8', grad: ['#fef9c3', '#0369a1', '#1e1b4b'], min: 0, max: 280, dec: 1 },
+      { id: 'soil_moisture', it: 'Umidità Suolo', en: 'Soil Moisture', unit: 'm³/m³', color: '#a16207', grad: ['#fef3c7', '#854d0e', '#1c0a00'], min: 0.05, max: 0.45, dec: 3 },
+      { id: 'air_temp', it: 'Temp. Aria', en: 'Air Temperature', unit: '°C', color: '#fbbf24', grad: ['#1e3a5f', '#fef9c3', '#7f1d1d'], min: -5, max: 38, dec: 1 },
+      { id: 'humidity', it: 'Umidità Relativa', en: 'Relative Humidity', unit: '%', color: '#67e8f9', grad: ['#fef9c3', '#0c4a6e', '#1e1b4b'], min: 30, max: 95, dec: 1 },
+      { id: 'wind_speed', it: 'Vento (Velocità)', en: 'Wind Speed', unit: 'm/s', color: '#a5b4fc', grad: ['#f0fdf4', '#6366f1', '#1e1b4b'], min: 0, max: 20, dec: 1 },
+      { id: 'no2', it: 'NO₂ (Inquin. Aria)', en: 'NO₂ (Air Pollution)', unit: 'µmol/m²', color: '#c084fc', grad: ['#f0fdf4', '#fef08a', '#7f1d1d'], min: 0, max: 15, dec: 3 },
+      { id: 'co', it: 'CO (Monossido)', en: 'CO (Carbon Monoxide)', unit: 'mmol/m²', color: '#94a3b8', grad: ['#f0fdf4', '#e2e8f0', '#1e293b'], min: 20, max: 120, dec: 2 },
+      { id: 'fires', it: 'Fuochi (FIRMS)', en: 'Active Fires', unit: 'count', color: '#ef4444', grad: ['#fef9c3', '#dc2626', '#450a0a'], min: 0, max: 15, dec: 0 },
+      { id: 'lulc', it: 'Uso Suolo (Dyn. World)', en: 'Land Use (Dyn. World)', unit: 'class', color: '#a78bfa', grad: ['#419bdf', '#88b053', '#c4281b'], min: 0, max: 8, dec: 0 },
+      { id: 'albedo', it: 'Albedo (Riflettività)', en: 'Albedo (Reflectivity)', unit: '[0,1]', color: '#e2e8f0', grad: ['#1c1917', '#94a3b8', '#f8fafc'], min: 0, max: 0.9, dec: 3 },
+      { id: 'lai', it: 'LAI (Area Fogliare)', en: 'LAI (Leaf Area)', unit: 'm²/m²', color: '#34d399', grad: ['#fef9c3', '#064e3b', '#022c22'], min: 0, max: 8, dec: 2 },
+      { id: 'evapotranspiration', it: 'Evapotraspirazione', en: 'Evapotranspiration', unit: 'mm', color: '#2dd4bf', grad: ['#fef9c3', '#0f766e', '#042f2e'], min: 0, max: 10, dec: 2 },
+      { id: 'aerosol', it: 'Aerosol (Polveri/Fumo)', en: 'Aerosol (Dust/Smoke)', unit: 'AAI', color: '#fb923c', grad: ['#f0fdf4', '#fef08a', '#7c2d12'], min: -1, max: 3, dec: 2 },
+      { id: 'o3', it: 'O₃ (Ozono)', en: 'O₃ (Ozone)', unit: 'mmol/m²', color: '#818cf8', grad: ['#fef9c3', '#4338ca', '#1e1b4b'], min: 80, max: 160, dec: 1 },
+    ];
+
+    const LULC_CLASSES = [
+      { val: 0, color: '#419bdf', it: 'Acqua', en: 'Water' },
+      { val: 1, color: '#397d49', it: 'Alberi/Foresta', en: 'Trees' },
+      { val: 2, color: '#88b053', it: 'Prato/Erbaceo', en: 'Grass' },
+      { val: 3, color: '#7a87c6', it: 'Veg. Allagata', en: 'Flooded veg.' },
+      { val: 4, color: '#e49635', it: 'Seminativo', en: 'Crops' },
+      { val: 5, color: '#dfc35a', it: 'Arbusti', en: 'Shrub & scrub' },
+      { val: 6, color: '#c4281b', it: 'Edificato', en: 'Built-up' },
+      { val: 7, color: '#a59b8f', it: 'Suolo nudo', en: 'Bare ground' },
+      { val: 8, color: '#b39fe1', it: 'Neve/Ghiaccio', en: 'Snow & ice' },
+    ];
+
+    const ERA5_VARS = ['air_temp', 'humidity', 'wind_speed'];
+    const S2_VARS = ['ndvi', 'ndwi', 'ndbi'];
+    const VAR_BAND = {
+      ndvi: 'NDVI', evi: 'EVI', ndwi: 'NDWI', ndbi: 'NDBI', lst: 'LST',
+      precipitation: 'precipitation', soil_moisture: 'sm_surface',
+      air_temp: 'air_temp_C', humidity: 'RH', wind_speed: 'wind_speed_ms',
+      no2: 'NO2_umol_m2', co: 'CO_mmol_m2', fires: 'T21', lulc: 'label',
+      albedo: 'albedo', lai: 'LAI', evapotranspiration: 'ET_mm',
+      aerosol: 'absorbing_aerosol_index', o3: 'O3_mmol_m2',
+    };
+
+    /* ── MAP ── */
+    const AOI_BOUNDS = [[41.199, 14.570], [41.262, 14.654]];
+    const map = L.map('map', { zoomControl: true, attributionControl: false });
+    map.fitBounds(AOI_BOUNDS, { padding: [20, 20] });
+    const basemaps = {
+      satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }),
+      osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }),
+      terrain: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17 }),
+    };
+    basemaps.satellite.addTo(map);
+    map.on('mousemove', function (e) { document.getElementById('coord-badge').textContent = e.latlng.lat.toFixed(5) + '°N  ' + e.latlng.lng.toFixed(5) + '°E'; });
+
+    function styleCell(id, sel) {
+      const v = VARS.find(x => x.id === activeVar);
+      return { color: sel ? '#fff' : v.color, weight: sel ? 2 : 1, opacity: sel ? 1 : 0.7, fillColor: v.color, fillOpacity: sel ? fillOpacity * 1.8 : fillOpacity, dashArray: sel ? null : '3 2' };
+    }
+    function buildGrid(cells) {
+      Object.values(cellLayers).forEach(function (l) { map.removeLayer(l); }); cellLayers = {};
+      cells.forEach(function (cell) {
+        var rect = L.rectangle([[cell.lat_min, cell.lon_min], [cell.lat_max, cell.lon_max]], styleCell(cell.cell_id, false));
+        rect.on('click', function () { selectCell(cell); });
+        rect.on('mouseover', function (e) { if (cell.cell_id !== selectedCell) e.target.setStyle({ weight: 2, opacity: 1, fillOpacity: fillOpacity * 1.4 }); showCellBadge(cell); });
+        rect.on('mouseout', function (e) { if (cell.cell_id !== selectedCell) e.target.setStyle(styleCell(cell.cell_id, false)); hideCellBadge(); });
+        rect.addTo(map); cellLayers[cell.cell_id] = rect;
+      });
+    }
+    async function selectCell(cell) {
+      Object.entries(cellLayers).forEach(function (e) { e[1].setStyle(styleCell(e[0], false)); });
+      if (selectedCell === cell.cell_id) { selectedCell = null; updateChartScope(); await Promise.all([updateStats(), renderChart()]); return; }
+      selectedCell = cell.cell_id;
+      cellLayers[cell.cell_id].setStyle(styleCell(cell.cell_id, true));
+      updateChartScope(); await Promise.all([updateStats(), renderChart()]);
+    }
+    function showCellBadge(cell) {
+      document.getElementById('cell-badge-id').textContent = cell.cell_id;
+      document.getElementById('cell-badge-coords').textContent = cell.lat_center.toFixed(4) + '°N  ' + cell.lon_center.toFixed(4) + '°E';
+      document.getElementById('cell-badge').classList.add('visible');
+    }
+    function hideCellBadge() { document.getElementById('cell-badge').classList.remove('visible'); }
+
+    async function loadGrid() {
+      try {
+        var r = await fetch('./data/' + activeRegion + '/grid.geojson'); if (!r.ok) throw new Error();
+        var gj = await r.json(); gridCells = gj.features.map(function (f) { return f.properties; }); buildGrid(gridCells);
+        document.getElementById('src-label').innerHTML = 'Fonte: Google Earth Engine<br>Script: gee_export.py<br>Griglia: ' + gridCells.length + ' celle';
+      } catch (e) { gridCells = buildSyntheticGrid(2.0); buildGrid(gridCells); }
+    }
+    function buildSyntheticGrid(km) {
+      var la0 = 41.199, la1 = 41.262, lo0 = 14.570, lo1 = 14.654;
+      var dLa = km / 111.0, dLo = km / (111.0 * Math.cos(41.23 * Math.PI / 180));
+      var cells = [], id = 0;
+      for (var la = la0; la < la1; la += dLa)for (var lo = lo0; lo < lo1; lo += dLo) {
+        cells.push({ cell_id: 'c' + String(id).padStart(3, '0'), lat_min: +la.toFixed(6), lat_max: +Math.min(la + dLa, la1).toFixed(6), lon_min: +lo.toFixed(6), lon_max: +Math.min(lo + dLo, lo1).toFixed(6), lat_center: +(la + dLa / 2).toFixed(6), lon_center: +(lo + dLo / 2).toFixed(6) }); id++;
+      }
+      return cells;
+    }
+
+    /* ── DATA LOADING ── */
+    async function loadCellData(varId, cellId) {
+      var target = cellId || (gridCells.length ? gridCells[0].cell_id : 'c000');
+      var key = varId + '__' + target;
+      if (cellData[key]) return cellData[key];
+      try {
+        var r = await fetch('./data/' + activeRegion + '/' + varId + '/' + varId + '_' + target + '_full.csv');
+        if (!r.ok) return null;
+        var text = await r.text();
+        var rows = parseCSV(text, varId);
+        if (ERA5_VARS.indexOf(varId) >= 0) rows = dailyMean(rows);
+        cellData[key] = rows; return rows;
+      } catch (e) { return null; }
+    }
+    function parseCSV(text, varId) {
+      if (!text || text.trim().length < 5) return [];
+      var lines = text.trim().split('\n');
+      var header = lines[0].split(',');
+      var dateIdx = header.indexOf('date');
+      var cloudIdx = header.indexOf('cloud_pct');
+      var band = VAR_BAND[varId];
+      var valIdx = band ? header.indexOf(band) : -1;
+      if (valIdx < 0) valIdx = header.findIndex(function (h) { return h !== 'date' && h !== 'cell_id' && h !== 'lat_center' && h !== 'lon_center' && !h.endsWith('_stdDev') && h !== 'cloud_pct'; });
+      if (dateIdx < 0 || valIdx < 0) return [];
+      return lines.slice(1).map(function (l) {
+        var c = l.split(',');
+        var row = { date: (c[dateIdx] || '').trim(), value: parseFloat(c[valIdx]) };
+        if (cloudIdx >= 0 && c[cloudIdx] !== undefined) row.cloud = parseFloat(c[cloudIdx]);
+        return row;
+      }).filter(function (r) { return r.date && !isNaN(r.value); });
+    }
+    function dailyMean(rows) {
+      var b = {};
+      rows.forEach(function (r) { var d = r.date.slice(0, 10); if (!b[d]) b[d] = []; b[d].push(r.value); });
+      return Object.entries(b).map(function (e) { return { date: e[0], value: e[1].reduce(function (a, x) { return a + x; }, 0) / e[1].length }; }).sort(function (a, b) { return a.date.localeCompare(b.date); });
+    }
+    function aggregateRows(rows, a) {
+      var b = {};
+      rows.forEach(function (r) {
+        var ds = r.date.includes('/') ? r.date.split('/')[0] : r.date;
+        var d = new Date(ds + 'T12:00:00Z');
+        var key;
+        if (a === 'annual') key = d.getUTCFullYear().toString();
+        else if (a === 'seasonal') { var m = d.getUTCMonth(); var s = m < 3 ? 'Win' : m < 6 ? 'Spr' : m < 9 ? 'Sum' : 'Aut'; key = s + ' ' + d.getUTCFullYear().toString().slice(2); }
+        else key = d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
+        if (!b[key]) b[key] = []; b[key].push(r.value);
+      });
+      var labels = Object.keys(b);
+      return { labels: labels, values: labels.map(function (k) { return b[k].reduce(function (a, x) { return a + x; }, 0) / b[k].length; }) };
+    }
+
+    /* navigation handled by chartjs-plugin-zoom */
+
+    /* ── CHART ── */
+    function updateChartTitle() { document.getElementById('chart-title').textContent = VARS.find(function (x) { return x.id === activeVar; })[lang]; }
+    function updateChartScope() {
+      document.getElementById('chart-scope').textContent = selectedCell || 'c000';
+      var tabs = document.getElementById('chart-tabs');
+      if (tabs) tabs.style.display = activeVar === 'lulc' ? 'none' : 'flex';
+      document.getElementById('cloud-legend').classList.toggle('visible', S2_VARS.indexOf(activeVar) >= 0);
+    }
+
+    function _mkChart(canvas, type, labels, datasets, v, hasCloud) {
+      if (mainChart) { mainChart.destroy(); mainChart = null; }
+      var scales = {
+        x: { ticks: { color: '#556357', font: { size: 9, family: "'IBM Plex Mono',monospace" }, maxRotation: 45 }, grid: { color: '#1a1d1b' }, border: { color: '#2a2f2b' } },
+        y: { ticks: { color: '#556357', font: { size: 9, family: "'IBM Plex Mono',monospace" } }, grid: { color: '#1a1d1b' }, border: { color: '#2a2f2b' }, title: { display: true, text: v.unit, color: '#556357', font: { size: 9, family: "'IBM Plex Mono',monospace" } } },
+      };
+      if (hasCloud) scales.yCloud = { position: 'right', min: 0, max: 100, ticks: { color: '#94a3b8', font: { size: 9, family: "'IBM Plex Mono',monospace" }, callback: function (val) { return val + '%'; } }, grid: { display: false }, border: { color: '#2a2f2b' }, title: { display: true, text: '☁', color: '#94a3b8', font: { size: 10 } } };
+      mainChart = new Chart(canvas.getContext('2d'), {
+        type: type, data: { labels: labels, datasets: datasets },
+        options: {
+          responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
+          plugins: { legend: { display: false }, zoom: { zoom: { wheel: { enabled: true, speed: 0.15, scaleMode: 'x' }, pinch: { enabled: true, scaleMode: 'x' }, mode: 'x', onZoom: function () { document.getElementById('chart-nav').style.display = 'block'; } }, pan: { enabled: true, mode: 'xy', onPan: function () { document.getElementById('chart-nav').style.display = 'block'; } }, limits: { x: { minRange: 3 } } }, tooltip: { backgroundColor: '#141716', borderColor: '#2a2f2b', borderWidth: 1, titleColor: '#8fa090', bodyColor: '#e8ede9', bodyFont: { family: "'IBM Plex Mono',monospace", size: 11 }, callbacks: { label: function (c) { return c.dataset.label + ': ' + (c.parsed.y != null ? c.parsed.y.toFixed(c.dataset.yAxisID === 'yCloud' ? 1 : v.dec) : '-') + ' ' + (c.dataset.yAxisID === 'yCloud' ? '%' : v.unit); } } } },
+          scales: scales
+        }
+      });
+    }
+
+    async function renderChart() {
+      var v = VARS.find(function (x) { return x.id === activeVar; });
+      var noData = lang === 'it' ? 'Nessun dato — esegui gee_export.py' : 'No data — run gee_export.py';
+      var raw = await loadCellData(activeVar, selectedCell);
+      var canvas = document.getElementById('main-chart');
+      var nav = document.getElementById('chart-nav');
+
+      if (activeVar === 'lulc') {
+        updateLulcLegend(); nav.classList.remove('visible');
+        if (!raw || !raw.length) { showEmptyChart(noData, canvas); return; }
+        renderLulcChart(raw, canvas); return;
+      }
+      if (!raw || !raw.length) { showEmptyChart(noData, canvas); return; }
+
+      // Build full series
+      var labels, values;
+      if (agg === 'raw') { labels = raw.map(function (r) { return r.date.slice(0, 10); }); values = raw.map(function (r) { return +r.value.toFixed(v.dec); }); }
+      else { var d = aggregateRows(raw, agg); labels = d.labels; values = d.values.map(function (x) { return +x.toFixed(v.dec); }); }
+      var mean = values.reduce(function (a, b) { return a + b; }, 0) / values.length;
+      var anomalies = values.map(function (x) { return +(x - mean).toFixed(v.dec); });
+      var plotData = chartType === 'anomaly' ? anomalies : values;
+      var isBar = chartType !== 'line';
+
+      // Cloud overlay
+      var hasCloud = S2_VARS.indexOf(activeVar) >= 0 && raw.some(function (r) { return r.cloud != null; });
+      var cloudData = [];
+      if (hasCloud) {
+        if (agg === 'raw') { cloudData = raw.map(function (r) { return r.cloud != null ? r.cloud : null; }); }
+        else {
+          var cb = {};
+          raw.forEach(function (r) {
+            var ds = r.date.includes('/') ? r.date.split('/')[0] : r.date;
+            var d2 = new Date(ds + 'T12:00:00Z'); var key2;
+            if (agg === 'annual') key2 = d2.getUTCFullYear().toString();
+            else if (agg === 'seasonal') { var m2 = d2.getUTCMonth(); var s2 = m2 < 3 ? 'Win' : m2 < 6 ? 'Spr' : m2 < 9 ? 'Sum' : 'Aut'; key2 = s2 + ' ' + d2.getUTCFullYear().toString().slice(2); }
+            else key2 = d2.getUTCFullYear() + '-' + String(d2.getUTCMonth() + 1).padStart(2, '0');
+            if (!cb[key2]) cb[key2] = []; if (r.cloud != null) cb[key2].push(r.cloud);
+          });
+          cloudData = labels.map(function (k) { return cb[k] && cb[k].length ? cb[k].reduce(function (a, b) { return a + b; }, 0) / cb[k].length : null; });
+        }
+      }
+
+      // Hide nav, reset zoom hint
+      document.getElementById('chart-nav').style.display = 'none';
+
+      var datasets = [{
+        label: v[lang], data: plotData, borderColor: v.color,
+        backgroundColor: isBar ? plotData.map(function (d) { return d >= 0 ? v.color + '99' : '#fb718599'; }) : v.color + '22',
+        borderWidth: isBar ? 0 : 1.5, pointRadius: agg === 'annual' ? 4 : agg === 'raw' ? 0 : 1.5,
+        pointBackgroundColor: v.color, fill: !isBar, tension: 0.4, yAxisID: 'y', order: 1,
+      }];
+      if (hasCloud) datasets.push({
+        label: lang === 'it' ? 'Nuvole (%)' : 'Cloud (%)', data: cloudData, type: 'line',
+        borderColor: 'rgba(148,163,184,0.6)', backgroundColor: 'transparent',
+        borderWidth: 1.5, borderDash: [4, 3], pointRadius: 4, fill: false, tension: 0.3,
+        pointBackgroundColor: cloudData.map(function (cv) { if (cv == null) return 'transparent'; if (cv < 20) return '#4ade80'; if (cv < 50) return '#fbbf24'; return '#ef4444'; }),
+        pointBorderColor: 'transparent', yAxisID: 'yCloud', order: 0,
+      });
+
+      _mkChart(canvas, isBar ? 'bar' : 'line', labels, datasets, v, hasCloud);
+    }
+
+    function showEmptyChart(msg, canvas) {
+      if (mainChart) { mainChart.destroy(); mainChart = null; }
+      var ctx = canvas.getContext('2d');
+      var w = canvas.parentElement.clientWidth || 400;
+      var h = canvas.parentElement.clientHeight || 160;
+      canvas.width = w; canvas.height = h;
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = '#556357'; ctx.font = "13px 'IBM Plex Mono',monospace"; ctx.textAlign = 'center';
+      ctx.fillText(msg, w / 2, h / 2);
+    }
+
+    function renderLulcChart(rows, canvas) {
+      var counts = {};
+      rows.forEach(function (r) { var cls = LULC_CLASSES.reduce(function (a, b) { return Math.abs(b.val - r.value) < Math.abs(a.val - r.value) ? b : a; }).val; counts[cls] = (counts[cls] || 0) + 1; });
+      var labels = [], data = [], colors = [];
+      LULC_CLASSES.forEach(function (cls) { if (counts[cls.val]) { labels.push(cls[lang]); data.push(counts[cls.val]); colors.push(cls.color); } });
+      if (!labels.length) { showEmptyChart(lang === 'it' ? 'Nessun dato LULC' : 'No LULC data', canvas); return; }
+      if (mainChart) { mainChart.destroy(); mainChart = null; }
+      mainChart = new Chart(canvas.getContext('2d'), {
+        type: 'bar',
+        data: { labels: labels, datasets: [{ label: lang === 'it' ? 'Copertura' : 'Coverage', data: data, backgroundColor: colors, borderWidth: 0 }] },
+        options: {
+          responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
+          plugins: { legend: { display: false }, tooltip: { backgroundColor: '#141716', borderColor: '#2a2f2b', borderWidth: 1, titleColor: '#8fa090', bodyColor: '#e8ede9', bodyFont: { family: "'IBM Plex Mono',monospace", size: 11 } } },
+          scales: { x: { ticks: { color: '#556357', font: { size: 9, family: "'IBM Plex Mono',monospace" }, maxRotation: 35 }, grid: { color: '#1a1d1b' }, border: { color: '#2a2f2b' } }, y: { ticks: { color: '#556357', font: { size: 9, family: "'IBM Plex Mono',monospace" } }, grid: { color: '#1a1d1b' }, border: { color: '#2a2f2b' } } }
+        }
+      });
+    }
+
+    /* ── SIDEBAR ── */
+    function renderVarList() {
+      var c = document.getElementById('var-list'); c.innerHTML = '';
+      VARS.forEach(function (v) {
+        var b = document.createElement('button');
+        b.className = 'var-btn' + (v.id === activeVar ? ' active' : '');
+        b.innerHTML = '<span class="var-dot" style="background:' + v.color + '"></span><span style="flex:1">' + v[lang] + '</span><span class="var-unit">' + v.unit + '</span><button class="info-btn" onclick="openInfo(\'' + v.id + '\',event)">ⓘ</button>';
+        b.onclick = async function () { activeVar = v.id; selectedCell = null; renderVarList(); updateLegend(); updateChartTitle(); updateChartScope(); Object.entries(cellLayers).forEach(function (e) { e[1].setStyle(styleCell(e[0], false)); }); await Promise.all([updateStats(), renderChart()]); };
+        c.appendChild(b);
+      });
+    }
+    function updateLulcLegend() {
+      var stops = LULC_CLASSES.map(function (c, i) { return c.color + ' ' + (i / (LULC_CLASSES.length - 1) * 100).toFixed(0) + '%'; }).join(',');
+      document.getElementById('legend-bar').style.background = 'linear-gradient(to right,' + stops + ')';
+      document.getElementById('leg-min').textContent = LULC_CLASSES[0][lang];
+      document.getElementById('leg-mid').textContent = LULC_CLASSES[4][lang];
+      document.getElementById('leg-max').textContent = LULC_CLASSES[LULC_CLASSES.length - 1][lang];
+    }
+    function updateLegend() {
+      if (activeVar === 'lulc') { updateLulcLegend(); return; }
+      var v = VARS.find(function (x) { return x.id === activeVar; });
+      document.getElementById('legend-bar').style.background = 'linear-gradient(to right,' + v.grad.join(',') + ')';
+      document.getElementById('leg-min').textContent = v.min;
+      document.getElementById('leg-mid').textContent = ((v.min + v.max) / 2).toFixed(v.dec);
+      document.getElementById('leg-max').textContent = v.max;
+    }
+    async function updateStats() {
+      var v = VARS.find(function (x) { return x.id === activeVar; });
+      var L_ = lang === 'it';
+      var raw = await loadCellData(activeVar, selectedCell);
+      var mean = '—', min_ = '—', max_ = '—', std = '—';
+      if (raw && raw.length) {
+        var vals = raw.map(function (r) { return r.value; }).filter(function (x) { return !isNaN(x); });
+        if (vals.length) {
+          var m = vals.reduce(function (a, b) { return a + b; }, 0) / vals.length;
+          mean = m.toFixed(v.dec); min_ = Math.min.apply(null, vals).toFixed(v.dec); max_ = Math.max.apply(null, vals).toFixed(v.dec);
+          std = Math.sqrt(vals.reduce(function (a, b) { return a + (b - m) * (b - m); }, 0) / vals.length).toFixed(v.dec);
+        }
+      }
+      document.getElementById('stat-grid').innerHTML =
+        '<div class="stat-card"><div class="stat-val">' + mean + '</div><div class="stat-lbl">' + (L_ ? 'Media' : 'Mean') + ' ' + v.unit + '</div></div>' +
+        '<div class="stat-card"><div class="stat-val">' + min_ + '</div><div class="stat-lbl">Min</div></div>' +
+        '<div class="stat-card"><div class="stat-val">' + max_ + '</div><div class="stat-lbl">Max</div></div>' +
+        '<div class="stat-card"><div class="stat-val">' + std + '</div><div class="stat-lbl">' + (L_ ? 'Dev.Std' : 'Std.Dev') + '</div></div>';
+    }
+    function updateOpacity(val) { fillOpacity = val / 100; document.getElementById('opacity-val').textContent = val + '%'; Object.entries(cellLayers).forEach(function (e) { e[1].setStyle(styleCell(e[0], e[0] === selectedCell)); }); }
+    function setAgg(a) { agg = a; document.querySelectorAll('.time-btn').forEach(function (b) { b.classList.toggle('active', b.dataset.agg === a); }); renderChart(); }
+    function setChartType(t) { chartType = t; document.querySelectorAll('.chart-tab').forEach(function (b) { b.classList.toggle('active', b.dataset.tab === t); }); renderChart(); }
+    function toggleBasemap(type) { Object.values(basemaps).forEach(function (l) { map.removeLayer(l); }); basemaps[type].addTo(map); document.querySelectorAll('.map-btn').forEach(function (b) { b.classList.toggle('active', b.id === 'btn-' + type); }); }
+
+    function openInfo(varId, e) {
+      e.stopPropagation();
+      var v = VARS.find(function (x) { return x.id === varId; });
+      var inf = INFO[varId] ? INFO[varId][lang] : null; if (!inf) return;
+      document.getElementById('info-dot').style.background = v.color;
+      document.getElementById('info-title').textContent = inf.title;
+      document.getElementById('info-desc').textContent = inf.body;
+      document.getElementById('info-range').textContent = inf.range;
+      document.getElementById('info-source').textContent = inf.source;
+      document.getElementById('lbl-range').textContent = lang === 'it' ? 'Scala' : 'Range';
+      document.getElementById('lbl-source').textContent = lang === 'it' ? 'Fonte' : 'Source';
+      var ur = document.getElementById('info-unit-row');
+      if (inf.unit) { document.getElementById('info-unit-note').textContent = inf.unit; document.getElementById('lbl-unit').textContent = lang === 'it' ? 'Nota unità' : 'Unit note'; ur.style.display = 'flex'; }
+      else ur.style.display = 'none';
+      document.getElementById('info-modal').classList.add('open');
+    }
+    function closeInfo(e) { if (e.target === document.getElementById('info-modal')) document.getElementById('info-modal').classList.remove('open'); }
+
+    async function loadMeta() {
+      try {
+        var m = await fetch('./data/' + activeRegion + '/metadata.json').then(function (r) { return r.json(); });
+        var el = document.getElementById('last-update');
+        if (m.last_update) el.textContent = '↻ ' + m.last_update.slice(0, 10);
+        if (m.cell_size_km) document.getElementById('src-label').innerHTML = 'Fonte: Google Earth Engine<br>Script: gee_export.py<br>Griglia: ' + m.n_cells + ' celle · ' + m.cell_size_km + 'km';
+      } catch (e) { }
+    }
+
+    /* ── RESIZE HANDLE ── */
+    (function () {
+      var handle = document.getElementById('resize-handle');
+      var chartEl = document.getElementById('chart-panel');
+      var dragging = false, startY = 0, startH = 0;
+      handle.addEventListener('mousedown', function (e) { dragging = true; startY = e.clientY; startH = chartEl.getBoundingClientRect().height; handle.classList.add('dragging'); document.body.style.userSelect = 'none'; document.body.style.cursor = 'row-resize'; });
+      document.addEventListener('mousemove', function (e) { if (!dragging) return; var newH = Math.min(Math.max(startH + (startY - e.clientY), 80), window.innerHeight * 0.75); chartEl.style.height = newH + 'px'; if (mainChart) mainChart.resize(); });
+      document.addEventListener('mouseup', function () { if (!dragging) return; dragging = false; handle.classList.remove('dragging'); document.body.style.userSelect = ''; document.body.style.cursor = ''; if (mainChart) mainChart.resize(); });
+      handle.addEventListener('touchstart', function (e) { dragging = true; startY = e.touches[0].clientY; startH = chartEl.getBoundingClientRect().height; handle.classList.add('dragging'); }, { passive: true });
+      document.addEventListener('touchmove', function (e) { if (!dragging) return; var newH = Math.min(Math.max(startH + (startY - e.touches[0].clientY), 80), window.innerHeight * 0.75); chartEl.style.height = newH + 'px'; if (mainChart) mainChart.resize(); }, { passive: true });
+      document.addEventListener('touchend', function () { dragging = false; handle.classList.remove('dragging'); if (mainChart) mainChart.resize(); });
+    })();
+
+    /* ── REGION SWITCH ── */
+    async function switchRegion(name) {
+      activeRegion = name; selectedCell = null; cellData = {}; gridCells = [];
+      var bounds = name === 'italia' ? [[35.492, 6.627], [47.092, 18.521]] : [[41.199, 14.570], [41.262, 14.654]];
+      map.fitBounds(bounds, { padding: [20, 20] });
+      await loadMeta(); await loadGrid();
+      updateLegend(); updateChartTitle(); updateChartScope();
+      await Promise.all([updateStats(), renderChart()]);
+    }
+
+    /* ── INIT ── */
+    (async function () {
+      renderVarList(); updateLegend(); updateChartTitle(); updateChartScope();
+      await loadMeta(); await loadGrid();
+      await Promise.all([updateStats(), renderChart()]);
+    })();
+  </script>
+</body>
+
+</html>

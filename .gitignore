@@ -1,0 +1,10 @@
+secrets.yaml
+logs/
+__pycache__/
+*.pyc
+data/*/*_2*.csv
+_site
+.jekyll-cache
+.DS_Store
+._*
+data/*/*/*_2*.csv
