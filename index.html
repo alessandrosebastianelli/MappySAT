@@ -716,8 +716,8 @@
       <div class="status-dot"></div>
       <select id="region-select" onchange="switchRegion(this.value)"
         style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-family:'IBM Plex Mono',monospace;font-size:11px;padding:3px 8px;border-radius:5px;cursor:pointer;outline:none">
-        <option value="sannio">Sannio / Matese</option>
         <option value="italia">Italia</option>
+        <option value="sannio">Sannio / Matese</option>
       </select>
       <span class="topbar-info" id="area-label"></span>
       <span class="topbar-info" id="last-update"></span>
@@ -851,7 +851,7 @@
   <script>
     /* ── STATE ── */
     let lang = 'it';
-    let activeRegion = 'sannio';
+    let activeRegion = 'italia';
     let activeVar = 'ndvi', agg = 'monthly', chartType = 'line';
     let fillOpacity = 0.40, selectedCell = null;
     let gridCells = [], cellLayers = {}, cellData = {}, mainChart = null;
