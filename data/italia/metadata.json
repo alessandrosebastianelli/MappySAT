@@ -1,0 +1,32 @@
+{
+  "last_update": "2026-06-03T04:00:24Z",
+  "region": "italia",
+  "label_it": "Italia",
+  "label_en": "Italy",
+  "time_start": "2019-01-01",
+  "time_end": "2025-12-31",
+  "scale_m": 25000,
+  "cell_size_km": 25,
+  "n_cells": 2080,
+  "variables": [
+    "ndvi",
+    "evi",
+    "ndwi",
+    "ndbi",
+    "lst",
+    "precipitation",
+    "soil_moisture",
+    "air_temp",
+    "humidity",
+    "wind_speed",
+    "no2",
+    "co",
+    "fires",
+    "lulc",
+    "albedo",
+    "lai",
+    "evapotranspiration",
+    "aerosol",
+    "o3"
+  ]
+}
