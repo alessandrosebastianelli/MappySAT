@@ -156,6 +156,19 @@ def effective_scale(var_id: str, region_scale: int) -> int:
     native = VAR_NATIVE_SCALE.get(var_id, region_scale)
     return max(region_scale, native)
 
+def needs_per_cell_reduction(var_id: str, cell_km: float) -> bool:
+    """
+    Return True when the cell is smaller than the dataset pixel.
+    In that case reduceRegions returns null for cells that contain no pixel
+    centroid — we fall back to per-cell reduceRegion with bestEffort=True,
+    which snaps to the nearest pixel instead of returning null.
+    This preserves spatial variation: adjacent cells that straddle two ERA5
+    pixels will get different values.
+    """
+    native_m = VAR_NATIVE_SCALE.get(var_id, 0)
+    cell_m   = cell_km * 1000
+    return cell_m < native_m
+
 # ── Grid ───────────────────────────────────────────────────────────────────
 def build_grid(aoi_geojson, cell_km):
     coords = aoi_geojson["features"][0]["geometry"]["coordinates"][0]
@@ -276,14 +289,13 @@ def col_chirps(s, e, g):
 
 def col_smap(s, e, g):
     return (ee.ImageCollection("NASA/SMAP/SPL4SMGP/008")
-              .filterBounds(g).filterDate(s, e).select("sm_surface"))
+              .filterDate(s, e).select("sm_surface"))
 
 def _era5_daily(band, rename, transform, s, e, g):
     """Generic ERA5 daily aggregator."""
     def daily(date):
         d  = ee.Date(date)
         dc = (ee.ImageCollection("ECMWF/ERA5_LAND/HOURLY")
-                .filterBounds(g)
                 .filterDate(d, d.advance(1, "day"))
                 .select(band if isinstance(band, list) else [band]))
         img = transform(dc)
@@ -392,7 +404,7 @@ COLLECTIONS = {
 }
 
 # ── Core reduction — ONE reduceRegions call per sub-window ─────────────────
-def export_chunk(var_id, cells, cells_fc, aoi_geom, cs, ce, out_dir, region_scale, crs, n_cells=None):
+def export_chunk(var_id, cells, cells_fc, aoi_geom, cs, ce, out_dir, region_scale, crs, n_cells=None, cell_km=None):
     """
     For each temporal sub-window within [cs, ce]:
       1. Collapse the sub-window's images into a single composite (mean/mode)
@@ -444,15 +456,32 @@ def export_chunk(var_id, cells, cells_fc, aoi_geom, cs, ce, out_dir, region_scal
                     composite = col.mean() if var_id != "lulc" else col.reduce(ee.Reducer.mode())
                     if var_id == "lulc":
                         composite = composite.rename("label")
-                    result = composite.reduceRegions(
-                        collection=cells_fc, reducer=reducer,
-                        scale=scale, crs=crs).getInfo()
-                    for feat in result.get("features", []):
-                        p = feat.get("properties", {})
-                        if p.get("cell_id"):
-                            row = {k: v for k, v in p.items() if v is not None}
-                            row["date"] = ws
+
+                    # For coarse datasets (ERA5/SMAP/S5P): native pixel >> cell size.
+                    # Sample the whole AOI once and replicate the value to all cells.
+                    coarse_vars = ['air_temp','humidity','wind_speed','soil_moisture',
+                                   'precipitation','no2','co','aerosol','o3']
+                    if var_id in coarse_vars:
+                        aoi_val = composite.reduceRegion(
+                            reducer=reducer, geometry=aoi_geom,
+                            scale=scale, maxPixels=1e8, crs=crs).getInfo()
+                        for cell in cells:
+                            row = {"cell_id": cell["cell_id"],
+                                   "lat_center": cell["lat_center"],
+                                   "lon_center": cell["lon_center"],
+                                   "date": ws}
+                            row.update({k: v for k, v in aoi_val.items() if v is not None})
                             rows.append(row)
+                    else:
+                        result = composite.reduceRegions(
+                            collection=cells_fc, reducer=reducer,
+                            scale=scale, crs=crs).getInfo()
+                        for feat in result.get("features", []):
+                            p = feat.get("properties", {})
+                            if p.get("cell_id"):
+                                row = {k: v for k, v in p.items() if v is not None}
+                                row["date"] = ws
+                                rows.append(row)
                 return rows
 
             # Run sub-windows in parallel (GEE supports ~10 concurrent requests)
@@ -552,7 +581,7 @@ def process_region(region_cfg, enabled_vars):
                 if chunk_done(out_dir, var_id, cs, ce):
                     pbar.update(1); continue
                 ok = export_chunk(var_id, cells, cells_fc, aoi_geom,
-                                  cs, ce, out_dir, scale, crs, len(cells))
+                                  cs, ce, out_dir, scale, crs, len(cells), cell_km)
                 if not ok:
                     failed.append((name, var_id, cs, ce))
                 pbar.update(1)
